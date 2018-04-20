@@ -1,0 +1,15 @@
+algorithm = 4
+region_size = 60
+input_file = example1.graph
+output_file = temp_outputs
+write_output = 1
+test_result = 1 
+frequency = 41
+t_start = 3
+t_end = 30
+t_increase = 3
+show_improve = 0
+fvs_path = fvs-solver
+time_limit = 15
+random_seed = 41
+terminal = 6
