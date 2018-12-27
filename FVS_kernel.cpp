@@ -472,23 +472,134 @@ std::unordered_set<int> FVS_kernel::R6(int w, int v) {
   std::unordered_set<int> res;
   if (D2.find(p) == D2.end() || D2[p].size() < 3)
     return res;
-  opt.insert(w);
-  opt.insert(v);
-  std::vector<int> x; // store vertices to be removed
-  x.push_back(v);
-  x.push_back(w);
+
+  // new Rule 6 according to our paper
+
+  std::set<int> B; // neighbors of v and w
+
   std::unordered_set<int>::iterator it;
-  int i;
-  for (i = 0, it = D2[p].begin(); i < 3; i++, it++) 
-    x.push_back(*it);
-  std::vector<int> nv;
-  for (i = 0; i < 5; i++) {
-    nv = get_neighbors(x[i]);
-    for (auto& j: nv)
-      res.insert(j);
-    remove_vertex(x[i]);
-    res.erase(x[i]);
+  for (it = D2[p].begin(); it != D2[p].end(); it++) 
+    B.insert(*it);
+
+  std::vector<int> multi_w, multi_v; // store multiplicity of edges from B to w and v
+
+  bool del_w = false, del_v = false; // do we need to delete vertex w or v?
+
+  // decide which vertices of w and v to delete:
+  // 1. if there is one edge between two vertices in B;
+  // 2. if there are paralle edges between vertex in B and { w, v } 
+  
+
+  std::vector<int> nb; // store neighbors of vertex in B
+  std::vector<int> X;  // store neighbors of B - { w, v }
+  for (auto& b: B) { 
+    int x, y;
+    nb = get_neighbors(b);
+    for (auto& i: nb)
+      if (i != w && i != v) {
+        if (B.find(i) != B.end())
+          del_w = true, del_v = true;
+	    else
+	      X.push_back(i);
+	    break;
+      }
+
+
+    if (w > b)
+      x = b, y = w;
+    else
+      x = w, y = b;
+    std::pair<int, int> p1 = std::make_pair(x, y);
+    
+    if (v > b)
+      x = b, y = v;
+    else
+      x = v, y = b;
+    std::pair<int, int> p2 = std::make_pair(x, y);
+
+    // multiplicity of edges
+    int e1 = D1[p1].first->multi, e2 = D1[p2].first->multi;
+
+    if (e1 > 1)
+      del_w = true;
+    if (e2 > 1)
+      del_v = true;
+
+    if (del_w && del_v)
+      break;
+
   }
+  
+  if (del_w == false && del_v == false) {
+    // do not need to delete w and v
+    // apply Rule 5 in [AK12]
+    add_edge(w, v);
+    add_edge(w, v);
+    res.insert(w);
+    res.insert(v);
+    for (auto& x: X) {
+      res.insert(x);
+      add_edge(x, w);
+      add_edge(x, v); 
+    }
+    for (auto& b: B) 
+      remove_vertex(b); 
+
+  } 
+  else {
+    if (del_w && del_v) {
+      // delete both w and v
+      
+      opt.insert(w);
+      opt.insert(v); 
+
+      // need to remove { w, v } and vertices in B
+      B.insert(w);
+      B.insert(v);
+
+      for (auto& i: B) {
+	    nb = get_neighbors(i);
+	    for (auto& j: nb)
+	      res.insert(j);
+	    remove_vertex(i); 
+      }
+      for (auto& i: B)
+	    res.erase(i);
+
+    }
+    else {
+      // delete one of { w, v }
+      // swap to make sure always delete v, keep w
+      if (del_w)
+        std::swap(w, v);
+
+      opt.insert(v);
+
+      // find the third neighbor of vertices in B 
+      X.clear();
+      for (auto& b: B) {
+        nb = get_neighbors(b);
+        for (auto& i: nb)
+          if (i != w && i != v) {
+            X.push_back(i);
+	        break;
+          } 
+      }
+
+      // delete vertices in B and v
+      B.insert(v);
+      for (auto& i: B)
+        remove_vertex(i);
+
+      // add one edge from w to X
+      for (auto& x: X) {
+        add_edge(x, w);
+        res.insert(x);
+      }
+      res.insert(w); 
+    }
+  }
+
   return res; 
 }
 
@@ -738,7 +849,7 @@ std::unordered_set<int> FVS_kernel::applyR9 (int u1, int u2, int u3, int u4, int
 }
 
 std::unordered_set<int> FVS_kernel::R9(int x) {
-  // apply Rule 8 for vertex x as u1 if possible
+  // apply Rule 9 for vertex x as u1 if possible
   // return affected vertices that are not processed
   // new vertex y will be u1
   std::unordered_set<int> res;
@@ -1638,7 +1749,14 @@ void FVS_kernel::approximate() {
   int i = 0;
   while (G.empty() == false) {
     i++;
-    int vi = d_map.rbegin()->second;
+    int vi;
+    if (lower_bound == false) 
+      // choose the max-degree vertex
+      vi = d_map.rbegin()->second;
+    else
+      // choose the min-degree vertex
+      vi = d_map.begin()->second;
+
     greedy.push_back(vi);
     std::vector<int> nvi = get_neighbors(vi);
     remove_vertex(vi);
@@ -2177,8 +2295,8 @@ std::vector<int> recurse_kernel_FVS(std::list<vertex>& G, int region_size/*=20*/
   std::list<FVS_kernel>::iterator itK = storage_K.begin();
   std::list<rDiv>::iterator itR = storage_R.begin();
   itK->compute_kernel(); 
-  int rr = region_size;
-  if (itK->get_kernel_size() > rr) {
+
+  if (itK->get_kernel_size() > region_size) {
     int r = itK->get_kernel_size() / 2; // r-division
     itK->rDivision(*itR, r);
   }
@@ -2220,24 +2338,24 @@ std::vector<int> recurse_kernel_FVS(std::list<vertex>& G, int region_size/*=20*/
         itR = storage_R.end();
         itK--, itR--;
         itK->compute_kernel(); 
-        int size_k = itK->get_kernel_size();
-        if (size_k > rr) {
+        int size_k = g.size();
+
+        if (size_k > region_size) {
           // graph is large, continue division
           int r = itK->get_kernel_size() / 2; // r-division
           itK->rDivision(*itR, r); 
         }
         else { 
           // graph is small, solve the problem
-          if (size_k > 0) {
+          if (itK->get_kernel_size() > 0) {
             std::vector<int> fvs;
             std::list<vertex> kernel_g = itK->get_kernel();
-            if (size_k > rr) {
-              fvs_kernel::Approx_FVS appx(kernel_g);
-              fvs = appx.approximate(); 
-            }
-            else {
-              fvs = compute_FVS_FPT(kernel_g);
-            }
+            fvs = compute_FVS_FPT(kernel_g);
+            if (fvs.empty())
+              // cannot solve region in given time
+              // return an empty solution
+              return fvs;
+            
             itK->add_solution(fvs);
             total += fvs.size();
           }
@@ -2246,12 +2364,14 @@ std::vector<int> recurse_kernel_FVS(std::list<vertex>& G, int region_size/*=20*/
         level_R.push_back(itR);
       } 
     }
+
     if (level_K.empty() == false) {
       HK.push_back(level_K);
       HR.push_back(level_R);
     }
     litR++;
   }
+
   litR--; // last level in hierarchy
   std::list<std::list<std::list<FVS_kernel>::iterator> >::iterator litK = HK.end(); // level iterator for kernels
   bool flag = false; // if solve the original graph 

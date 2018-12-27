@@ -166,7 +166,8 @@ namespace fvs_kernel {
       std::unordered_map<int, std::multimap<int, int>::iterator> it_map; // map id to iterator in d_map
       std::vector<int> temp_opt;
       int L9_count = 0;
-      int step_size = 1; //frequency parameter: the number of greedy steps between two kernelizations
+      int step_size = 1; //frequency parameter: the number of greedy steps between two applications of kernelization alg
+      bool lower_bound = false; // compute lower bound or approximation in the approximate function?
   
       int get_degree(int v);
       std::vector<int> get_neighbors(int v);
@@ -219,7 +220,11 @@ namespace fvs_kernel {
       // greedy choose high degree vertices and apply reduction rules after each choice
       // this will modify internal data structures
       void approximate();
-      void set_step_size(int s) { step_size = s;} // set frequency parameter
+      // set step size and lower bound flag
+      void set_step_size(int s, bool lower=false) { step_size = s; lower_bound=lower;}
+
+      // obtain lower bound of FVS, which is the number of verties collected by reduction rules 
+      int get_lower_bound() { return temp_opt.size() + opt.size() - greedy.size(); }
 
   };
   
@@ -241,7 +246,7 @@ namespace fvs_kernel {
   bool is_FVS(std::list<vertex>& H, indices& ids, std::unordered_set<int> s);
   
   
-  // compute FVS by optimized PTAS: recursively apply kernel to each level of decomposition until the region is smaller than the given size
+  // compute FVS by optimized PTAS: recursively apply kernelization to each level of decomposition until the region is smaller than the given size
   // if the boolean value bound is true, then the size of the boundary is appended to the end of returning vector
   std::vector<int> recurse_kernel_FVS(std::list<vertex>& G, int region_size=20, bool bound=false);
   
