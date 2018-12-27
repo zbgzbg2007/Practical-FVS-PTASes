@@ -9,7 +9,7 @@ The code implements approximation algorithms for minimum feedback vertex set pro
 
   _Optimization of Pearl's method of conditioning and greedy-like approximation algorithms for the vertex feedback set problem_, 1996
 
-* The linear kernel for FVS in planar graphs of Bonamy and Kowalik (we corrected their rule 6)
+* The linear kernel for FVS in planar graphs of Bonamy and Kowalik (we corrected their Reduction Rule 6)
   
   _A 13k-kernel for planar feedback vertex set via region decomposition_, 2016
 
